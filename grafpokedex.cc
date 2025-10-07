@@ -52,7 +52,6 @@ pokemon* Aux = NULL;
 pokemon* Last = NULL;
 pokemon* First = NULL;
 
-
 void ReadPokedex(GameTools& tool);
 void InsertPoke(pokemon* Poke, GameTools& tool);
 
@@ -398,7 +397,6 @@ void CleanPointers(){
 	printf("No more pointers\n");
 }
 
-
 void DeleteAllSprites(){
 	char filename[64];
 	for(int i = 1; i <= 721; i++){
@@ -409,8 +407,8 @@ void DeleteAllSprites(){
 	}
 }
 
-//CHAT GPT TO DESCROMPRESSS SPRITES FROM A .DAT FILE
-//Create a file that descompresses a .dat file that was compressed with this composition (struct) to store png
+//DESCROMPRESSS SPRITES FROM A .DAT FILE
+//Not mine function
 int ExtractSprite(int number, const char *out_path) {
     FILE *in = fopen("assets/sprites/sprites.dat", "rb");
     if (!in) { perror("fopen"); return 1; }
