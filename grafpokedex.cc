@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 //Normal Libs
 
 #include "esat/window.h"
@@ -13,6 +14,7 @@
 #include "esat/sprite.h"
 #include "esat/time.h"
 //Custom ESAT libs
+
 
 //Struct that gets every pokemon
 struct pokemon{
@@ -130,7 +132,6 @@ void WindowInit(GameTools& tool, Lists& list){
 
 	//Reset Key Input
 	esat::ResetBufferdKeyInput();
-
 
 	list.Aux = NULL;
 	list.Last = NULL;
@@ -333,6 +334,7 @@ void ShowPokedex(Lists& list, GameTools& tool){
 		esat::DrawBegin();
 		esat::DrawClear(0,0,0);
 		esat::DrawSprite(tool.background,0,0);
+		//Draw Pokemon Sprite
 		esat::DrawSprite(list.Aux->sprite, 15, 100);
 
 		float baroffset = (float) 200 / tool.numPokemons;
