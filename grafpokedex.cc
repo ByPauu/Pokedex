@@ -27,9 +27,11 @@ struct pokemon{
 
 struct SpriteIndex{									//Struct to store sprites while init
 	int id;
-	long offset;
-	long size;
+	int32_t offset;
+	int32_t size;
 };
+//int32_t is used instead of long bc on otehr OS (macOS) long store 8bytes
+//and spriteindex needs a variable of 4bytes (32bits)
 
 struct GameTools{
 	int manager = 0;
@@ -42,7 +44,6 @@ struct GameTools{
 
 	char auxnumberchar[50];
 	char auxname[50];
-	char pokenumber[50];
 
 	esat::SpriteHandle background;
 	esat::SpriteHandle bar;
@@ -336,8 +337,6 @@ void ShowPokedex(Lists& list, GameTools& tool){
 
 		float baroffset = (float) 200 / tool.numPokemons;
 		esat::DrawSprite(tool.bar, 468, (float) tool.currentShown * baroffset + 68.0f);
-		
-		snprintf(tool.pokenumber,50, "%03d", list.Aux->number);
 
 		//Poke Down Middle name
 		DrawShadow(30,80, list.Aux->name);
@@ -356,9 +355,10 @@ void ShowPokedex(Lists& list, GameTools& tool){
 						e++;
 					}
 				}
-				snprintf(tool.pokenumber, 14, "%03d", list.Aux->number + i);
+				char pokenumber[5];
+				snprintf(pokenumber, 14, "%03d", list.Aux->number + i);
 				float nextrow = 177 + i * 33;
-				DrawShadow(270, nextrow, tool.pokenumber);
+				DrawShadow(270, nextrow, pokenumber);
 				DrawShadow(320, nextrow, PokeName->name);
 			}
 		}
