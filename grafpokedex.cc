@@ -1,61 +1,67 @@
+//GrafPokedex -> A brew implementation of a pokedex in c++, It doesn't have poke info, just sprites until 7 gen
+//ByPauu -> 05/04/2025 - 07/10/2025
+//This was started a few months ago that i didn't program like now, so its a little updated
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+//Normal Libs
 
 #include "esat/window.h"
 #include "esat/draw.h"
 #include "esat/input.h"
 #include "esat/sprite.h"
 #include "esat/time.h"
+//Custom ESAT libs
 
-
+//Struct that gets every pokemon
 struct pokemon{
-	char name[50];
-	int number;
-	esat::SpriteHandle sprite = NULL;
-  char filesprite[50];
-	int pcatched;
-	pokemon* Next;
-	pokemon* Prev;
+	char name[50]; 										//Name of that pokemon
+	int number;												//Pokedex number
+	esat::SpriteHandle sprite = NULL;	//Sprite handler of that poke
+  char filesprite[50];							//Route to that sprites
+
+	pokemon* Next;										//List next indexer
+	pokemon* Prev;										//List previous indexer
 };
 
-struct SpriteIndex{
+struct SpriteIndex{									//Struct to store sprites while init
 	int id;
 	long offset;
 	long size;
+};
+
+struct GameTools{
+	int manager = 0;
+	int auxnumber;
+	int auxkeynum = 0;
+
+	int Mouse = 0;
+	int numPokemons = 0;
+	int currentShown = 0;
+
+	char auxnumberchar[50];
+	char auxname[50];
+	char pokenumber[50];
+
+	esat::SpriteHandle background;
+	esat::SpriteHandle bar;
 };
 
 pokemon* Aux = NULL;
 pokemon* Last = NULL;
 pokemon* First = NULL;
 
-esat::SpriteHandle background;
-esat::SpriteHandle bar;
 
-int manager = 0;
-int auxnumber;
-int auxkeynum = 0;
+void ReadPokedex(GameTools& tool);
+void InsertPoke(pokemon* Poke, GameTools& tool);
 
-int Mouse = 0;
-int numPokemons = 0;
-float currentShown = 0;
-
-char* auxnumberchar = (char*) malloc(sizeof(char) * 50);
-char* auxname = (char*) malloc(sizeof(char) * 50);
-char* pokenumber = (char*) malloc(sizeof(char) * 50);
-
-unsigned char fps = 60; //Control de frames por segundo
-double current_time,last_time;
-
-void ReadPokedex();
-void InsertPoke(pokemon* Poke);
-void ShowPokedex();
-void AddPokemonName();
-void AddPokemonNumber(); 
-void ShowHud();
-void PokedexSort();
+void ShowPokedex(GameTools& tool);
+void AddPokemonName(GameTools& tool);
+void AddPokemonNumber(GameTools& tool); 
+void ShowHud(GameTools& tool);
+void PokedexSort(GameTools& tool);
 void DrawShadow(float x, float y, char* string);
-
 
 int ExtractSprite(int number, const char *out_path);
 void DeleteAllSprites();
@@ -63,19 +69,18 @@ void DeleteAllSprites();
 void CleanLists();
 void CleanPointers();
 
+void WindowInit(GameTools& tool);
+
 int esat::main(int argc, char **argv) {
-	esat::WindowInit(512,392);
-	WindowSetMouseVisibility(true);
-  esat::DrawSetFillColor(0,0,0);
-  esat::DrawSetTextSize(35);
-	esat::DrawSetTextFont("assets/fonts/pokemon.ttf");
 
-	background = esat::SpriteFromFile("assets/hud/menu.png");
-	bar = esat::SpriteFromFile("assets/hud/bar.png");
+	unsigned char fps = 60; //Control de frames por segundo
+	double current_time,last_time;
 
-	esat::ResetBufferdKeyInput();
+	GameTools tool;
+	printf("%d",tool.manager);
+	WindowInit(tool);
 
-	ReadPokedex();
+	ReadPokedex(tool);
     while(esat::WindowIsOpened() && !esat::IsSpecialKeyDown(esat::kSpecialKey_Escape)) {
       //Control fps 
     	do{
@@ -84,11 +89,11 @@ int esat::main(int argc, char **argv) {
 
     	last_time = esat::Time(); 
 			
-			switch(manager){
-				case 0:{ ShowHud(); break; }
-				case 1:{ AddPokemonName();break; }
-				case 2:{ AddPokemonNumber(); break; }
-				case 3:{ ShowPokedex(); break; }
+			switch(tool.manager){
+				case 0:{ ShowHud(tool); break; }
+				case 1:{ AddPokemonName(tool);break; }
+				case 2:{ AddPokemonNumber(tool); break; }
+				case 3:{ ShowPokedex(tool); break; }
 				case 4:{ esat::WindowDestroy(); break; }
 			}
 			
@@ -103,7 +108,26 @@ int esat::main(int argc, char **argv) {
   return 0;
     
 }
-void ReadPokedex() {
+
+void WindowInit(GameTools& tool){
+	//WindowSettings
+	esat::WindowInit(512,392);
+	esat::WindowSetMouseVisibility(true);
+
+	//Drawing Settings
+  esat::DrawSetFillColor(0,0,0);
+  esat::DrawSetTextSize(35);
+	esat::DrawSetTextFont("assets/fonts/pokemon.ttf");
+
+	//Setting background
+	tool.background = esat::SpriteFromFile("assets/hud/menu.png");
+	tool.bar = esat::SpriteFromFile("assets/hud/bar.png");
+
+	//Reset Key Input
+	esat::ResetBufferdKeyInput();
+}
+
+void ReadPokedex(GameTools& tool) {
 	char catched;
 	
 	FILE *pfile = fopen("assets/pokedex.txt", "r"); // Abrir el archivo
@@ -115,16 +139,16 @@ void ReadPokedex() {
 					fseek(pfile, 1, SEEK_CUR); // Saltar el espacio entre el número y el nombre
 
 					// Leer el nombre caracter por caracter hasta salto de línea o EOF
-					while (fread(&auxname[j], sizeof(char), 1, pfile) == 1 && auxname[j] != '\n') {
+					while (fread(&tool.auxname[j], sizeof(char), 1, pfile) == 1 && tool.auxname[j] != '\n') {
 							j++;
 					}
-					auxname[j] = '\0'; // Terminar la cadena correctamente
+					tool.auxname[j] = '\0'; // Terminar la cadena correctamente
 
 					// Imprimir para comprobar que lee bien
-					auxnumber = i + 1;
+					tool.auxnumber = i + 1;
 					// Llamar a PokedexSort() si está capturado
 					if (catched == '1') {
-						PokedexSort();
+						PokedexSort(tool);
 					}
 					catched = '\0';
 			}
@@ -136,11 +160,11 @@ void ReadPokedex() {
 
 
 
-void ShowHud(){
+void ShowHud(GameTools& tool){
 
 	esat::DrawBegin();
 	esat::DrawClear(0,0,0);
-	esat::DrawSprite(background,0,0);
+	esat::DrawSprite(tool.background,0,0);
 	
 	esat::DrawText(86,117,"1. Add Pokemon:");
 	esat::DrawText(86,173,"2. Show Pokedex:");
@@ -150,23 +174,23 @@ void ShowHud(){
 
   switch(esat::GetNextPressedKey()){
     case '1':{
-      manager = 1;
-      auxnumber = 0;
-      memset(auxname, '\0', 14);
-      memset(auxnumberchar, '\0', 50);
-			background = esat::SpriteFromFile("assets/hud/addpokemon.png");
+      tool.manager = 1;
+      tool.auxnumber = 0;
+      memset(tool.auxname, '\0', 14);
+      memset(tool.auxnumberchar, '\0', 50);
+			tool.background = esat::SpriteFromFile("assets/hud/addpokemon.png");
       break;
     }
     case '2':{
-			background = esat::SpriteFromFile("assets/hud/showpokedex.png");
-      manager = 3;
-			currentShown = 1;
+			tool.background = esat::SpriteFromFile("assets/hud/showpokedex.png");
+      tool.manager = 3;
+			tool.currentShown = 1;
       Aux = First;
-			Mouse = esat::MouseWheelY();
+			tool.Mouse = esat::MouseWheelY();
       break;
     }
     case '3':{
-      manager = 4;
+      tool.manager = 4;
       break;
     }
   }
@@ -174,70 +198,69 @@ void ShowHud(){
 	esat::ResetBufferdKeyInput();
 }
 
-void AddPokemonName(){
+void AddPokemonName(GameTools& tool){
 	char auxkey = '\0';
 	esat::DrawBegin();
 	esat::DrawClear(0,0,0);
-	esat::DrawSprite(background,0,0);
+	esat::DrawSprite(tool.background,0,0);
 	esat::DrawText(60,150, "Introduce el nombre del pokemon:");
-	esat::DrawText(60,226, auxname );
+	esat::DrawText(60,226, tool.auxname );
 
 	esat::DrawEnd();
 	auxkey = esat::GetNextPressedKey();
 	if(esat::IsSpecialKeyDown(esat::kSpecialKey_Enter)){
-		manager = 2;
-		auxkeynum = 0;
+		tool.manager = 2;
+		tool.auxkeynum = 0;
 	}else if(esat::IsSpecialKeyDown(esat::kSpecialKey_Backspace)){
-		if(auxkeynum > 0){
-			auxkeynum--;
-			auxname[auxkeynum] = '\0';
+		if(tool.auxkeynum > 0){
+			tool.auxkeynum--;
+			tool.auxname[tool.auxkeynum] = '\0';
 		}
 	}else if(auxkey != '\0'){
-		if(auxkeynum > 0 && auxkey != 32){
+		if(tool.auxkeynum > 0 && auxkey != 32){
 			auxkey += 32;
 		}
-		auxname[auxkeynum] = auxkey;
-		auxkeynum++;
+		tool.auxname[tool.auxkeynum] = auxkey;
+		tool.auxkeynum++;
 	}
-
 	esat::ResetBufferdKeyInput();
 	
 }
 
-void AddPokemonNumber(){
+void AddPokemonNumber(GameTools& tool){
 	char auxkey = '\0';
 	esat::DrawBegin();
 	esat::DrawClear(0,0,0);
-	esat::DrawSprite(background,0,0);
+	esat::DrawSprite(tool.background,0,0);
 	esat::DrawText(60,150, "Introduce el numero del pokemon:");
-	esat::DrawText(60,226, auxnumberchar);
+	esat::DrawText(60,226, tool.auxnumberchar);
 
 	esat::DrawEnd();
 	auxkey = esat::GetNextPressedKey();
 	if(auxkey >= 48 && auxkey <= 57){
-		auxnumberchar[auxkeynum] = auxkey;
-		auxkeynum++;
+		tool.auxnumberchar[tool.auxkeynum] = auxkey;
+		tool.auxkeynum++;
 	}
 	if(esat::IsSpecialKeyDown(esat::kSpecialKey_Enter)){
-		manager = 0;
-		background = esat::SpriteFromFile("assets/hud/menu.png");
-		auxkeynum = 0;
-		auxnumber = atoi(auxnumberchar);
-		PokedexSort();
+		tool.manager = 0;
+		tool.background = esat::SpriteFromFile("assets/hud/menu.png");
+		tool.auxkeynum = 0;
+		tool.auxnumber = atoi(tool.auxnumberchar);
+		PokedexSort(tool);
 	}
 	if(esat::IsSpecialKeyDown(esat::kSpecialKey_Backspace)){
-		if(auxkeynum > 0){
-			auxkeynum--;
-			auxnumberchar[auxkeynum] = '\0';
+		if(tool.auxkeynum > 0){
+			tool.auxkeynum--;
+			tool.auxnumberchar[tool.auxkeynum] = '\0';
 		}
 	}
 	esat::ResetBufferdKeyInput();
 
 }
 
-void InsertPoke(pokemon* Poke){
-    Poke->number = auxnumber;
-    strcpy(Poke->name, auxname);
+void InsertPoke(pokemon* Poke, GameTools& tool){
+    Poke->number = tool.auxnumber;
+    strcpy(Poke->name, tool.auxname);
 
     snprintf(Poke->filesprite, 50, "assets/sprites/%04d.png", Poke->number);
 
@@ -246,41 +269,41 @@ void InsertPoke(pokemon* Poke){
 
     Poke->sprite = esat::SpriteFromFile(Poke->filesprite);
 
-    numPokemons++;
+    tool.numPokemons++;
 }
 
-void PokedexSort(){
+void PokedexSort(GameTools& tool){
 	//FIRST LIST
   if(First == NULL){
     Aux = (pokemon*) malloc(sizeof(pokemon)); //Creating the fist list
 
-    InsertPoke(Aux);
+    InsertPoke(Aux, tool);
 		First = Aux;
     Last = First;
 		Aux->Next = NULL;
 		Aux->Prev = NULL;
   }else{
 		//LIST BEFORE FIRST
-		if(auxnumber < First->number){ 
+		if(tool.auxnumber < First->number){ 
 			Aux = (pokemon*) malloc(sizeof(pokemon)); //Creating the fist list
       Aux->Next = First;
 			First->Prev = Aux;
       First = Aux;
       
-      InsertPoke(Aux);
+      InsertPoke(Aux, tool);
 		//LIST AFTER LAST
-    }else if(auxnumber > Last->number){
+    }else if(tool.auxnumber > Last->number){
 			Aux = (pokemon*) malloc(sizeof(pokemon)); //Creating the fist list
       Last->Next = Aux;
 			Aux->Prev = Last;
       Last = Aux;
       
-      InsertPoke(Aux);
+      InsertPoke(Aux, tool);
 			Aux->Next = NULL;
 		//LIST BETWEEN
-		}else if(auxnumber > First->number && auxnumber < Last->number){
+		}else if(tool.auxnumber > First->number && tool.auxnumber < Last->number){
 			Aux = First;
-      while(auxnumber > Aux->Next->number){
+      while(tool.auxnumber > Aux->Next->number){
         Aux = Aux->Next;
       }
 			pokemon* Current = (pokemon*) malloc(sizeof(pokemon)); //Creating the fist list
@@ -289,23 +312,23 @@ void PokedexSort(){
 				Current->Prev = Aux;
 				Aux->Next = Current;
 				
-				InsertPoke(Current);
+				InsertPoke(Current, tool);
 			}
     }
   }
 }
 
-void ShowPokedex(){
+void ShowPokedex(GameTools& tool){
 	if(Aux != NULL){
 		esat::DrawBegin();
 		esat::DrawClear(0,0,0);
-		esat::DrawSprite(background,0,0);
+		esat::DrawSprite(tool.background,0,0);
 		esat::DrawSprite(Aux->sprite, 15, 100);
 
-		float baroffset = (float) 200 / numPokemons;
-		esat::DrawSprite(bar, 468, currentShown * baroffset + 68.0f);
+		float baroffset = (float) 200 / tool.numPokemons;
+		esat::DrawSprite(tool.bar, 468, (float) tool.currentShown * baroffset + 68.0f);
 		
-		snprintf(pokenumber,50, "%03d", Aux->number);
+		snprintf(tool.pokenumber,50, "%03d", Aux->number);
 
 		//Poke Down Middle name
 		DrawShadow(30,80, Aux->name);
@@ -324,32 +347,31 @@ void ShowPokedex(){
 						e++;
 					}
 				}
-				snprintf(pokenumber, 14, "%03d", Aux->number + i);
+				snprintf(tool.pokenumber, 14, "%03d", Aux->number + i);
 				float nextrow = 177 + i * 33;
-				DrawShadow(270, nextrow, pokenumber);
+				DrawShadow(270, nextrow, tool.pokenumber);
 				DrawShadow(320, nextrow, PokeName->name);
 			}
 		}
-		if(esat::IsSpecialKeyPressed(esat::kSpecialKey_Enter) || esat::MouseWheelY() < Mouse){
-			Mouse = esat::MouseWheelY();
+		if(esat::IsSpecialKeyPressed(esat::kSpecialKey_Enter) || esat::MouseWheelY() < tool.Mouse){
+			tool.Mouse = esat::MouseWheelY();
 			Aux = Aux->Next;
-			currentShown++;
+			tool.currentShown++;
 		}
-		if(esat::IsSpecialKeyPressed(esat::kSpecialKey_Backspace) || esat::MouseWheelY() > Mouse){
-			Mouse = esat::MouseWheelY();
+		if(esat::IsSpecialKeyPressed(esat::kSpecialKey_Backspace) || esat::MouseWheelY() > tool.Mouse){
+			tool.Mouse = esat::MouseWheelY();
 			Aux = Aux->Prev;
-			currentShown--;
+			tool.currentShown--;
 		}
 		esat::DrawEnd();
 
 	}else{
-    manager = 0;
-		background = esat::SpriteFromFile("assets/hud/menu.png");
+    tool.manager = 0;
+		tool.background = esat::SpriteFromFile("assets/hud/menu.png");
 		esat::DrawSetFillColor(0,0,0);
   }
 
 }
-
 
 void DrawShadow(float x, float y, char* string){
 	esat::DrawSetFillColor(168,184,184);
@@ -372,9 +394,7 @@ void CleanLists(){
 }
 
 void CleanPointers(){
-	free(auxnumberchar);
-	free(auxname);
-	free(pokenumber);
+	//free(pointer)
 	printf("No more pointers\n");
 }
 
