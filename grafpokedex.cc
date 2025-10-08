@@ -13,6 +13,7 @@
 #include "esat/input.h"
 #include "esat/sprite.h"
 #include "esat/time.h"
+#include "esat_extra/sqlite3.h"
 //Custom ESAT libs
 
 
@@ -76,6 +77,10 @@ void CleanPointers();
 
 void WindowInit(GameTools& tool, Lists& list);
 
+
+void SaveDB(Lists& list);
+
+
 int esat::main(int argc, char **argv) {
 
 	unsigned char fps = 60; //Control de frames por segundo
@@ -88,6 +93,7 @@ int esat::main(int argc, char **argv) {
 	WindowInit(tool, list);
 
 	ReadPokedex(list, tool);
+	SaveDB(list);
     while(esat::WindowIsOpened() && !esat::IsSpecialKeyDown(esat::kSpecialKey_Escape)) {
       //Control fps 
     	do{
@@ -458,4 +464,103 @@ int ExtractSprite(int number, const char *out_path) {
     fclose(in);
     return 0;
 }
+//INSERT SPRITES AND DATA INTO BBDD
+void SaveDB(Lists &list){
+    list.Aux = list.First;
+    sqlite3 *db;
+    int rc;
+
+    // Abrir base de datos UNA VEZ
+    rc = sqlite3_open("assets/sprites/pokemondb.db", &db);
+    if(rc != SQLITE_OK){
+        fprintf(stderr, "ERROR ABRIENDO LA BASE DE DATOS: %s\n", sqlite3_errmsg(db));
+        return;
+    }
+
+    // Preparar la sentencia SQL con parámetros
+    const char *sql = "INSERT INTO Pokemon (ID, Name, Sprite, SpriteRoute) VALUES (?, ?, ?, ?);";
+    sqlite3_stmt *stmt;
+
+    rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+    if(rc != SQLITE_OK){
+				fprintf(stderr, "Error preparando la sentencia SQL (rc=%d): %s\n", rc, sqlite3_errmsg(db));
+        sqlite3_close(db);
+        return;
+    }
+
+    while(list.Aux != NULL){
+        FILE *file;
+        long size;
+        unsigned char *buffer;
+        size_t bytes_leidos;
+
+        char route[100];
+        snprintf(route, sizeof(route), "assets/sprites/%04d.png", list.Aux->number);
+
+        file = fopen(route, "rb");
+        if(!file){
+            fprintf(stderr, "No se pudo abrir el sprite: %s\n", route);
+            list.Aux = list.Aux->Next;
+            continue;
+        }
+
+        // Obtener tamaño del archivo
+        fseek(file, 0, SEEK_END);
+        size = ftell(file);
+        rewind(file);
+
+        if(size <= 0){
+            fprintf(stderr, "Archivo vacío o inválido: %s\n", route);
+            fclose(file);
+            list.Aux = list.Aux->Next;
+            continue;
+        }
+
+        // Reservar memoria correctamente
+        buffer = (unsigned char *)malloc(size);
+        if(!buffer){
+            fprintf(stderr, "No hay memoria para leer sprite %d\n", list.Aux->number);
+            fclose(file);
+            list.Aux = list.Aux->Next;
+            continue;
+        }
+
+        bytes_leidos = fread(buffer, 1, size, file);
+        fclose(file);
+
+        if(bytes_leidos != size){
+            fprintf(stderr, "Error leyendo archivo %s (%zu/%ld bytes)\n", route, bytes_leidos, size);
+            free(buffer);
+            list.Aux = list.Aux->Next;
+            continue;
+        }
+
+        // Limpiar bindings anteriores
+        sqlite3_reset(stmt);
+        sqlite3_clear_bindings(stmt);
+
+        // Asignar parámetros
+        sqlite3_bind_int(stmt, 1, list.Aux->number);
+        sqlite3_bind_text(stmt, 2, list.Aux->name, -1, SQLITE_STATIC);
+        sqlite3_bind_blob(stmt, 3, buffer, size, SQLITE_TRANSIENT);
+				sqlite3_bind_text(stmt, 4, list.Aux->filesprite, -1, SQLITE_STATIC);
+
+
+        rc = sqlite3_step(stmt);
+        if(rc != SQLITE_DONE){
+            fprintf(stderr, "Error insertando sprite %d: %s\n",
+                    list.Aux->number, sqlite3_errmsg(db));
+        }else{
+            printf("Sprite %04d insertado correctamente (%.2f KB)\n",
+                   list.Aux->number, size / 1024.0);
+        }
+
+        free(buffer);
+        list.Aux = list.Aux->Next;
+    }
+
+    sqlite3_finalize(stmt);
+    sqlite3_close(db);
+}
+
 
