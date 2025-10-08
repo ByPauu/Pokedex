@@ -492,14 +492,10 @@ void SaveDB(Lists &list){
         FILE *file;
         long size;
         unsigned char *buffer;
-        size_t bytes_leidos;
 
-        char route[100];
-        snprintf(route, sizeof(route), "assets/sprites/%04d.png", list.Aux->number);
-
-        file = fopen(route, "rb");
+        file = fopen(list.Aux->filesprite, "rb");
         if(!file){
-            fprintf(stderr, "No se pudo abrir el sprite: %s\n", route);
+            fprintf(stderr, "No se pudo abrir el sprite: %s\n", list.Aux->filesprite);
             list.Aux = list.Aux->Next;
             continue;
         }
@@ -510,7 +506,7 @@ void SaveDB(Lists &list){
         rewind(file);
 
         if(size <= 0){
-            fprintf(stderr, "Archivo vacío o inválido: %s\n", route);
+            fprintf(stderr, "Archivo vacío o inválido: %s\n", list.Aux->filesprite);
             fclose(file);
             list.Aux = list.Aux->Next;
             continue;
@@ -524,16 +520,7 @@ void SaveDB(Lists &list){
             list.Aux = list.Aux->Next;
             continue;
         }
-
-        bytes_leidos = fread(buffer, 1, size, file);
         fclose(file);
-
-        if(bytes_leidos != size){
-            fprintf(stderr, "Error leyendo archivo %s (%zu/%ld bytes)\n", route, bytes_leidos, size);
-            free(buffer);
-            list.Aux = list.Aux->Next;
-            continue;
-        }
 
         // Limpiar bindings anteriores
         sqlite3_reset(stmt);
